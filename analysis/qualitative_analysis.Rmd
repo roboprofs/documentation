@@ -1,0 +1,250 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+library(readxl)
+Citizenship_Test_Data_Randomized <- read_csv("questionaire.csv")
+
+colorScheme <- c('#fb9902', '#008080')
+theme_set(theme_bw())
+#scale_fill_manual(values=colorScheme)
+#Die Daten können mithilfe der "Import Dataset" Funktion im Variablen Fenster importiert werden
+correct_answers <- Citizenship_Test_Data_Randomized[1,4:18]
+
+#Löschen der Antworten 
+quest_data <- Citizenship_Test_Data_Randomized[-c(1), ]
+
+#Leaving out Timestamp and Mock questions
+quest_data$Zeitstempel <- NULL
+quest_data$`How many teeth  does a human usually have? (Note this question is a mock question and does not influence your result)` <- NULL
+quest_data$`Example: Do you like pizza? (Note that this question is a mock question and does not influence our results)` <- NULL
+
+#Datensatz verlängern
+quest_data <- quest_data %>% mutate_all(as.character)
+
+cleaned_quest_data <- quest_data %>% pivot_longer(!ID, names_to = "question", values_to = "answer")
+
+#Mit den richtigen Antworten verbinden 
+
+correct_answers <- correct_answers %>% mutate_all(as.character)
+cleaned_correct_answers <- correct_answers %>% pivot_longer(everything(), names_to = "question", values_to = "correct_answer")
+
+#Beide tabellen verbinden
+quest_data_joined <- full_join(cleaned_correct_answers, cleaned_quest_data, by = "question")
+quest_data_joined <- quest_data_joined %>% select(ID, question, answer, everything())
+
+# Überprüfen ob die Antwort stimmt 
+quest_data_joined <- quest_data_joined %>% mutate(
+  correct = ifelse (answer == correct_answer, 1, 0)
+)
+
+#Selecting all the questions of the quiz
+quiz_data <- quest_data_joined %>% drop_na()
+accurary_per_subject <- quiz_data %>% group_by(ID) %>% summarise(percent_correct = sum(correct)/15)
+
+#Adding the accurary to the data
+quest_data_joined <- full_join(quest_data_joined, accurary_per_subject, by = "ID")
+
+
+#VR DATA einfügen 
+setwd("exp_logs/")
+files <- list.files(pattern = "*.csv", full.names=FALSE, recursive=FALSE)
+
+temp <- read.csv(files[10])
+#[1] "time"  "event" "value"
+
+
+# Leerer Data Frame 
+cols <- c("time", "event", "value", "file")
+D <- data.frame(matrix(nrow=0, ncol=length(cols)))
+colnames(D) <- cols
+
+# VR Daten in Dataframe einlesen und file namen merken
+for(i in 1:length(files)) {
+  T <- read.csv(files[i])
+  T$file <- files[i]
+  D <- rbind(D,T)
+}
+
+
+#Adding the id 
+D_participant_id <- D %>% filter(event == "participant_id") %>% select(value, file)
+D_with_ID <- full_join(D, D_participant_id, "file")
+D_with_ID$file <- NULL  
+colnames(D_with_ID)[colnames(D_with_ID) == "value.y"] <- "id"
+colnames(D_with_ID)[colnames(D_with_ID) == "value.x"] <- "value"
+D_with_ID <- D_with_ID %>% mutate(short_id = D_with_ID$id %>% substr(1,8)) 
+
+#Cleaning the data
+#levels(factor(D_with_ID$event))
+VR_data_raw <- D_with_ID %>% 
+  filter(event == "condition" | event == "repeat_lesson") %>% 
+  select(event, value, short_id)
+
+#Counting the Retake
+sum_retake <- VR_data_raw %>% filter(event == "repeat_lesson") %>% mutate(retake = ifelse(value == "True",1,0)) %>%  group_by(short_id) %>% summarise(n_retakes = sum(retake))
+sum_condition <- VR_data_raw %>% filter(event == "condition")
+sum_condition$event <- NULL
+colnames(sum_condition)[colnames(sum_condition) == "value"] <- "condition"
+
+#Summarizing the data 
+VR_data <- full_join(sum_condition, sum_retake, "short_id")
+colnames(VR_data)[colnames(VR_data) == "short_id"] <- "ID"
+
+#Alle Werte zusammenführen
+RP_final_all <- full_join(quest_data_joined, VR_data, "ID") %>% filter(ID != "11c03d89") %>% filter(ID != "a3275378 - Dome") %>% filter(ID != "b228a931Yannik")
+RP_final_pp <- full_join(accurary_per_subject, VR_data, "ID") %>% filter(ID != "11c03d89") %>% filter(ID != "a3275378 - Dome") %>% filter(ID != "b228a931Yannik")
+```
+```{r}
+RP_afterquestions_double <- RP_final_all %>% filter(is.na(correct_answer)) %>% 
+  filter(question != "4.5/10 If yes in what way?") %>%
+  filter(question != "How old are you?") %>%
+  filter(question != "Which gender do you identify with?") %>%
+  filter(question != "Which academic degree do you have?") %>%
+  filter(question != "Do you have feedback?") 
+
+RP_afterquestions_double$correct_answer <- NULL
+RP_afterquestions_double$correct <- NULL
+RP_afterquestions_double$answer <- RP_afterquestions_double$answer %>% as.double()
+
+perceptions_summarized <- RP_afterquestions_double %>% 
+  group_by(question, condition) %>% 
+  summarise(mean_answer = mean(answer), median(answer), sd(answer))
+
+perceptions_summarized_all <- RP_afterquestions_double %>% 
+  group_by(question) %>% 
+  summarise(mean_answer = mean(answer), median(answer), sd(answer))
+```
+```{r}
+perceptions_summarized_no_ten <- RP_afterquestions_double %>% filter(question != "10/10 Do you feel like the robot is sentient?") %>%
+  group_by(question, condition) %>% 
+  summarise(mean_answer = mean(answer), median(answer), sd(answer))
+```
+
+
+```{r}
+ggplot(data=perceptions_summarized_no_ten, aes(x=question, y=mean_answer, fill=condition)) +
+geom_bar(stat="identity", position=position_dodge())+
+ scale_fill_manual(values=colorScheme) +
+coord_flip()
+```
+
+Analyse Statistischer Signifikanz
+
+Frage 4/10 Did the robotic reaction in between the sessions affect you emotionally?
+```{r}
+Q4 <- RP_afterquestions_double %>% filter(question == "4/10 Did the robotic reaction in between the sessions affect you emotionally?")
+t.test(Q4$answer ~ Q4$condition, VAR = TRUE, alternative = "two.sided")
+```
+```{r}
+cor.test(Q4$answer, Q4$percent_correct)
+```
+```{r}
+Q4 %>% 
+  ggplot(aes(x = condition, y = answer, fill = condition)) +
+  geom_violin() +
+  scale_fill_manual(values=colorScheme) +
+  theme(legend.position = "none")+
+  labs(x='Condition', y='emotionally affected')
+
+```
+
+
+
+Frage 5/10 Did the reactions of the robot influence your decision to request a repetition of a lecture?
+```{r}
+Q5 <- RP_afterquestions_double %>% filter(question == "5/10 Did the reactions of the robot influence your decision to request a repetition of a lecture?")
+t.test(Q5$answer ~ Q5$condition, VAR = TRUE, alternative = "two.sided")
+```
+```{r}
+cor.test(Q5$answer, Q5$n_retakes)
+```
+```{r}
+Q5 %>% 
+  ggplot(aes(x = condition, y = answer, fill = condition)) +
+  geom_violin() +
+  scale_fill_manual(values=colorScheme) +
+  theme(legend.position = "none") +
+  labs(x='Condition', y='Influence on decision to retake')
+```
+
+
+Frage 6/10 Were the reactions of the robot helpful and or beneficial for your learning experience?
+```{r}
+Q6 <- RP_afterquestions_double %>% filter(question == "6/10 Were the reactions of the robot helpful and or beneficial for your learning experience?")
+t.test(Q6$answer ~ Q6$condition, VAR = TRUE, alternative = "two.sided")
+```
+```{r}
+cor.test(Q6$answer, Q6$percent_correct)
+```
+```{r}
+Q6 %>% 
+  ggplot(aes(x = condition, y = answer, fill = condition)) +
+  geom_violin() +
+  scale_fill_manual(values=colorScheme) +
+  theme(legend.position = "none") +
+  labs(x='Condition', y='Were the reactions helpful')
+```
+
+Frage 7/10 Overall, did you find the robot to be a good teacher?
+```{r}
+Q7 <- RP_afterquestions_double %>% filter(question == "7/10 Overall, did you find the robot to be a good teacher?")
+t.test(Q7$answer ~ Q7$condition, VAR = TRUE, alternative = "two.sided")
+```
+```{r}
+Q7 %>% 
+  ggplot(aes(x = condition, y = answer, fill = condition)) +
+  geom_violin() +
+  scale_fill_manual(values=colorScheme) +
+  theme(legend.position = "none") +
+  labs(x='Condition', y='Is the robot a good teacher')
+```
+
+
+
+Frage 8/10 Did you find the robot to be sympathetic?
+```{r}
+Q8 <- RP_afterquestions_double %>% filter(question == "8/10 Did you find the robot to be sympathetic?")
+t.test(Q8$answer ~ Q8$condition, VAR = TRUE, alternative = "two.sided")
+```
+```{r}
+Q8 %>% 
+  ggplot(aes(x = condition, y = answer, fill = condition)) +
+  geom_violin() +
+  scale_fill_manual(values=colorScheme) +
+  theme(legend.position = "none") +
+  labs(x='Condition', y='Perceived Sympathy')
+```
+
+
+Frage 9/10 Do you feel like the robot cared about your success?
+```{r}
+Q9 <- RP_afterquestions_double %>% filter(question == "9/10 Do you feel like the robot cared about your success?")
+t.test(Q9$answer ~ Q9$condition, VAR = TRUE, alternative = "two.sided")
+```
+
+Inklusive Frage 4.5
+```{r}
+RP_afterquestions_all <- RP_final_all %>% filter(is.na(correct_answer)) %>% 
+  filter(question != "How old are you?") %>%
+  filter(question != "Which gender do you identify with?") %>%
+  filter(question != "Which academic degree do you have?") %>%
+  filter(question != "Do you have feedback?") 
+
+RP_afterquestions_all$correct_answer <- NULL
+RP_afterquestions_all$correct <- NULL
+
+Q4point5 <- RP_afterquestions_all %>% filter(question == "4/10 Did the robotic reaction in between the sessions affect you emotionally?" | question == "4.5/10 If yes in what way?")
+
+sum_4.5 <- Q4point5 %>% select(ID, answer, question, condition) %>% pivot_wider(names_from = "question", values_from = "answer")
+sum_4.5
+sum_4.5_pos <- sum_4.5 %>% filter(condition == "positive") %>% drop_na()
+sum_4.5_neg <- sum_4.5 %>% filter(condition == "negative") %>% drop_na()
+```
