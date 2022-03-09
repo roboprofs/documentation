@@ -1,0 +1,179 @@
+---
+title: "RoboProfs_EXP_Analysis"
+author: "Group H"
+date: "29 1 2022"
+output: 
+  html_document:
+    toc: true
+    code_download: true
+    highlight: tango
+    theme: spacelab
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+
+colorScheme <- c('#fb9902', '#008080')
+theme_set(theme_bw())
+```
+
+---
+
+```{r}
+cleanedData <- read.csv('roboprofs_cleanedCombinedData.csv') %>% select(-1)
+```
+
+```{r}
+head(cleanedData)
+```
+
+
+
+## Performance Hypothesis
+
+```{r}
+cleanedData %>% 
+  group_by(condition) %>% 
+  summarize(m = mean(proportion_correct_participant))
+```
+
+```{r, results='hide'}
+fit_brms_performance_overall <- brms::brm(
+  formula = proportion_correct_participant ~ condition,
+  data = cleanedData
+)
+```
+
+```{r}
+summary(fit_brms_performance_overall)$fixed[,c("l-95% CI", "Estimate", "u-95% CI")]
+```
+
+
+```{r}
+brms::hypothesis(fit_brms_performance_overall, "conditionpositive > 0")
+```
+
+
+```{r, results='hide'}
+fit_brms_politeness <- brms::brm(
+  formula = proportion_correct_participant ~ repeated * condition,
+  data = cleanedData
+)
+```
+
+```{r}
+summary(fit_brms_politeness)$fixed[,c("l-95% CI", "Estimate", "u-95% CI")]
+```
+
+
+```{r}
+brms::hypothesis(fit_brms_politeness, "repeatedTRUE + 0.5 * repeatedTRUE:conditionpositive < 0")
+```
+
+```{r}
+brms::hypothesis(fit_brms_politeness, "conditionpositive + 0.5 * repeatedTRUE:conditionpositive < 0")
+```
+
+```{r}
+brms::hypothesis(fit_brms_politeness, "repeatedTRUE:conditionpositive > 0")
+```
+
+```{r}
+as.data.frame(brms::hypothesis(fit_brms_politeness, "repeatedTRUE + 0.5 * repeatedTRUE:conditionpositive < 0")[1]) %>% 
+  rbind(as.data.frame(brms::hypothesis(fit_brms_politeness, "conditionpositive + 0.5 * repeatedTRUE:conditionpositive < 0")[1])) %>% 
+  rbind(as.data.frame(brms::hypothesis(fit_brms_politeness, "repeatedTRUE:conditionpositive > 0")[1])) %>% 
+  .[,c('hypothesis.Hypothesis', 'hypothesis.Evid.Ratio', 'hypothesis.Post.Prob', 'hypothesis.Star')]
+```
+
+## Decreased Repition
+
+```{r, results='hide'}
+fit_brms_repetition_overall <- brms::brm(
+  formula = as.numeric(repeated) ~ condition,
+  data = cleanedData
+)
+```
+
+```{r}
+summary(fit_brms_repetition_overall)$fixed[,c("l-95% CI", "Estimate", "u-95% CI")]
+```
+
+```{r}
+brms::hypothesis(fit_brms_repetition_overall, "conditionpositive > 0")
+```
+
+
+
+
+### Negative
+```{r}
+data_negative <- cleanedData %>% 
+  mutate(order_reordered = factor(order, levels = c(1,2,3,4,5))) %>% 
+  filter(condition == 'negative')
+head(data_negative)
+```
+
+```{r, results='hide'}
+fit_brms_neg <- brms::brm(
+  formula = as.numeric(repeated) ~ order_reordered,
+  data = data_negative
+)
+```
+
+```{r}
+summary(fit_brms_neg)$fixed[,c("l-95% CI", "Estimate", "u-95% CI")]
+```
+
+```{r}
+as.data.frame(brms::hypothesis(fit_brms_neg, "order_reordered3 < 0")[1]) %>% 
+  rbind(as.data.frame(brms::hypothesis(fit_brms_neg, "order_reordered3 > order_reordered4")[1])) %>% 
+  rbind(as.data.frame(brms::hypothesis(fit_brms_neg, "order_reordered4 > order_reordered5")[1])) %>% 
+  .[,c('hypothesis.Hypothesis', 'hypothesis.Evid.Ratio', 'hypothesis.Post.Prob', 'hypothesis.Star')]
+```
+
+### Positive
+```{r}
+data_positive <- cleanedData %>% 
+  mutate(order_reordered = factor(order, levels = c(1,2,3,4,5))) %>% 
+  filter(condition == 'positive')
+head(data_positive)
+```
+
+```{r, results='hide'}
+fit_brms_pos <- brms::brm(
+  formula = as.numeric(repeated) ~ order_reordered,
+  data = data_positive
+)
+```
+
+```{r}
+summary(fit_brms_pos)$fixed[,c("l-95% CI", "Estimate", "u-95% CI")]
+```
+
+```{r}
+as.data.frame(brms::hypothesis(fit_brms_pos, "order_reordered3 < 0")[1]) %>% 
+  rbind(as.data.frame(brms::hypothesis(fit_brms_pos, "order_reordered3 > order_reordered4")[1])) %>% 
+  rbind(as.data.frame(brms::hypothesis(fit_brms_pos, "order_reordered4 > order_reordered5")[1])) %>% 
+  .[,c('hypothesis.Hypothesis', 'hypothesis.Evid.Ratio', 'hypothesis.Post.Prob', 'hypothesis.Star')]
+```
+
+### Graph
+```{r, echo=F, message=F}
+combinedData %>% 
+  filter(participant_id != 'f58735de') %>% 
+  group_by(order, condition) %>%
+  summarize(
+    proportion_repeated = sum(repeated) / 3 / ifelse(condition=='positive', 9, 10)
+  )  %>%
+  filter(order != 1) %>% 
+  ggplot(aes(x=order, y=proportion_repeated, fill = condition)) +
+    geom_bar(position = 'dodge', stat = 'identity') +
+    scale_fill_manual(values=colorScheme) +
+    labs(x='Trial (in order)', y='Proportion Repeated')
+```
+
+

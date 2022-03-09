@@ -1,0 +1,112 @@
+---
+title: "RoboProfs_EXP_Analysis"
+author: "Group H"
+date: "29 1 2022"
+output: 
+  html_document:
+    toc: true
+    code_download: true
+    highlight: tango
+    theme: spacelab
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+---
+
+# Pitch
+
+```{r}
+pitchPerfect %>% 
+  filter(story != '10;neutral') %>%
+  group_by(participant_id) %>% 
+  summarise(
+    variance = var(pitch)
+  )
+```
+
+```{r, echo=F, message=F}
+pitchPerfect %>% 
+  ggplot(aes(x=story * sin(pitch * 0.0174533 + 3/2 * pi), y=10 * cos(pitch * 0.0174533 + 3/2 * pi), color = condition)) +
+    geom_point(alpha = .1) +
+    geom_hline(yintercept = 0) +
+    theme(axis.text.x=element_text(angle=35, hjust=1)) +
+    coord_cartesian(ylim = c(-5, 5))
+```
+
+```{r, echo=F, message=F}
+pitchPerfect %>% 
+  ggplot(aes(x=factor(story), y=pitch, color = condition, fill = condition)) +
+    geom_violin(alpha = 0.3, position = 'identity') +
+    coord_cartesian(ylim = c(100, 270))
+```
+
+```{r}
+pitchPerfectFiltered <- pitchPerfect %>%
+  filter(story != 10, story != 9)
+```
+
+
+```{r, echo=F, message=F}
+pitchPerfectFiltered %>%
+  filter(story != 10, story != 9) %>%
+  group_by(condition, participant_id) %>%
+  summarize(
+    var = var(pitch)
+  ) %>%
+  group_by(condition) %>%
+  summarize(
+    var = mean(var)
+  )
+```
+
+```{r, results='hide'}
+fit_brms_pp <- brms::brm(
+  formula = pitch ~ condition,
+  data = pitchPerfectFiltered
+)
+```
+
+```{r}
+summary(fit_brms_pp)$fixed[,c("l-95% CI", "Estimate", "u-95% CI")]
+```
+
+```{r}
+pitchPerfectFiltered %>% 
+  filter(story == 7) %>%
+  ggplot(aes(x = pitch, color = condition, fill = condition)) +
+  geom_density(alpha = 0.5)
+```
+
+```{r}
+pitchPerfect %>% 
+  filter(story == 6) %>%
+  ggplot(aes(x = time, y = pitch, color = participant_id, linetype = as.factor(repitition))) +
+  geom_line(alpha = 0.5) +
+  geom_text(aes(label = participant_id, alpha = .1), check_overlap = T) + 
+  facet_wrap(vars(condition))
+```
+
+```{r, echo=F, message=F}
+pitchPerfect %>%
+  filter(story == 8) %>%
+  filter(participant_id == "e8e251f1")
+```
+
+```{r, echo=F, message=F}
+pitchAnalysis <- pitchPerfect %>%
+  filter(story == 8)
+
+ci_pitch <- quantile(pitchAnalysis$pitch, probs = c(.01, .99))
+ci_pitch
+
+pitchAnalysis %>%
+  filter(pitch < ci_pitch['1%'] | pitch > ci_pitch['99%']) %>%
+  arrange(nr)
+```

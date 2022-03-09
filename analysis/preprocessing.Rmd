@@ -1,0 +1,364 @@
+---
+title: "RoboProfs_EXP_Analysis"
+author: "Group H"
+date: "29 1 2022"
+output: 
+  html_document:
+    toc: true
+    code_download: true
+    highlight: tango
+    theme: spacelab
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+
+colorScheme <- c('#fb9902', '#008080')
+theme_set(theme_bw())
+```
+
+---
+
+# Get Data + Make it Tidy
+## Read in Data
+### Data from Questionaire
+```{r}
+numberOfParticipants <- 20
+numberOfQuestions <- 15
+numberOfTrials <- 5
+
+questionaireData <- read.csv('questionnaire.acsv', colClasses = 'character', fill=F)
+comprehensionQuestions <- questionaireData[,1:(numberOfQuestions + 2)]
+```
+
+### Logged VR Data
+```{r}
+directory = './exp_logs/'
+
+# get names of logs
+logFileNames <- list.files(directory, pattern = '*.csv$', full.names = F)
+
+# exclude test logs
+logFileNames <- logFileNames[!grepl('^\\+', logFileNames)]
+
+# read in logs
+logFiles <- lapply(paste(directory, logFileNames, sep = ''), read.csv)
+```
+
+
+## Tidy Data
+### Questionaire Data
+```{r}
+# rename columns
+colnames(comprehensionQuestions) <- c('participant_id', 'mock_question', paste('question_', 1:15, sep = ''))
+```
+
+
+```{r}
+# extract correct answers
+correctAnswers <- comprehensionQuestions[nchar(comprehensionQuestions$participant_id) != 8,]
+print(correctAnswers)
+```
+
+```{r}
+# tidy comprehensionQuestions
+comprehensionQuestions <- comprehensionQuestions %>% 
+  filter(nchar(comprehensionQuestions$participant_id) == 8,) %>% 
+  pivot_longer(
+    cols = -1,
+    names_to = 'question',
+    values_to = 'answer'
+  )
+```
+
+```{r}
+comprehensionQuestions <- comprehensionQuestions %>% 
+  mutate(
+   answer_correct = as.vector(correctAnswers[,comprehensionQuestions$question] == comprehensionQuestions$answer),
+   trial_nr = case_when(
+     comprehensionQuestions$question %in% paste('question_', 1:3, sep = '') ~ 1,
+     comprehensionQuestions$question %in% paste('question_', 4:6, sep = '') ~ 2,
+     comprehensionQuestions$question %in% paste('question_', 7:9, sep = '') ~ 3,
+     comprehensionQuestions$question %in% paste('question_', 10:12, sep = '') ~ 4,
+     comprehensionQuestions$question %in% paste('question_', 13:15, sep = '') ~ 5,
+     T ~ 0
+   )
+  )
+```
+
+```{r}
+head(comprehensionQuestions)
+```
+
+
+### Logged VR Data
+```{r, eval=F, echo=F}
+logFiles
+```
+
+```{r}
+vrData <- data.frame(
+  'participant_id' = character(),
+  'condition' = character(),
+  'trial_nr' = numeric(),
+  'repeated' = logical(),
+  'order' = numeric()
+)
+
+pitchPerfect <- data.frame(
+  'participant_id' = character(),
+  'condition' = character(),
+  'story' = numeric(),
+  'time' = numeric(),
+  'pitch' = numeric(),
+  'repitition' = numeric()
+)
+
+order = c(1,2,3,4,5)
+
+for(file in logFiles) {
+  file <- file[file$time != -1,]
+  
+  participant_id <- file[file$event == 'participant_id','value']
+  condition <- file[file$event == 'condition', 'value']
+  trial_nr <- str_split(file[file$event == 'lessons', 'value'], ';')
+  repeated <- file[file$event == 'repeat_lesson', 'value']
+  
+  participant_data <- data.frame(
+    'participant_id' = str_sub(participant_id, 0, 8),
+    'condition' = condition,
+    'trial_nr' = trial_nr,
+    'repeated' = as.logical(repeated),
+    'order' = order
+  )
+  
+  names(participant_data) <-c('participant_id', 'condition', 'trial_nr', 'repeated', 'order')
+  vrData <- rbind(vrData, participant_data)
+  
+  time_passed = 0
+  story_i = 0
+  story = 0
+  reps = rep(0, 11)
+  for (i in 1:nrow(file)) {
+    if (file[i, "event"] == "starting_story") {
+      story = as.numeric(str_extract(file[i, "value"], "[:digit:]+"))
+      time_passed = file[i, "time"]
+      story_i = i
+      reps[story] <- reps[story] +  1
+    } else if (file[i, "event"] == "hmd_pitch") {
+      data <- data.frame(
+        'nr' = i - story_i,
+        'participant_id' = str_sub(participant_id, 0, 8),
+        'condition' = condition,
+        'story' = story,
+        'time' = file[i, "time"] - time_passed,
+        'pitch' = (as.numeric(file[i, "value"]) + 180) %% 360,
+        'repitition' = reps[story]
+      )
+      pitchPerfect <- rbind(pitchPerfect, data)
+    }
+  }
+}
+```
+
+```{r}
+head(vrData)
+```
+
+```{r}
+head(pitchPerfect)
+```
+
+## Combine Datasets
+```{r}
+combinedData <- merge(vrData, comprehensionQuestions, all.x = T, all.y = T, by = c('participant_id', 'trial_nr')) %>% 
+  mutate(
+    question = factor(question, levels=c('mock_question', paste('question_', 1:15, sep = ''))),
+    trial_nr = as.numeric(trial_nr)
+  ) %>% 
+  filter(question != 'mock_question')
+```
+
+```{r}
+head(combinedData)
+```
+
+# Descriptive Statistics
+
+```{r}
+descrStatsCitizenshiptest <- combinedData %>% 
+  group_by(participant_id) %>% 
+  summarize(
+    percent_correct = mean(answer_correct),
+    percent_repeated = mean(repeated)
+  )
+descrStatsCitizenshiptest
+```
+
+
+_TOP 3 participants with highest and lowest score in "citizenship test"_
+```{r}
+descrStatsCitizenshiptest  %>% 
+  .[order(-.$percent_correct),] %>% 
+  {rbind(
+    c('---HEAD---------', strrep('-',35), strrep('-',30)),
+    head(.,3),
+    c('---TAIL-----------', strrep('-',35), strrep('-',30)), 
+    tail(.,3)
+  )}
+```
+
+_TOP 3 participants with most and least repetitions_
+```{r}
+descrStatsCitizenshiptest  %>% 
+  .[order(-.$percent_repeated),] %>% 
+  {rbind(
+    c('---HEAD---------', strrep('-',35), strrep('-',30)),
+    head(.,3),
+    c('---TAIL-----------', strrep('-',35), strrep('-',30)), 
+    tail(.,3)
+  )}
+```
+
+---
+
+```{r}
+descrStatsCitizenshiptest %>% 
+  summarize(
+    mean_score = mean(percent_correct),
+    median_score = median(percent_correct),
+    sd_score = sd(percent_correct),
+    mean_retake = mean(percent_repeated),
+    median_retake = median(percent_repeated),
+    sd_retake = sd(percent_repeated)
+  )
+```
+
+---
+
+```{r, echo=F, message=F}
+combinedData %>% 
+  group_by(question, condition) %>% 
+  summarize(
+    proportion_correct = sum(answer_correct) / numberOfQuestions
+  ) %T>%
+  print %>% 
+  ggplot(aes(x=question, y=proportion_correct, fill = condition)) +
+    geom_bar(position = 'stack', stat = 'identity') +
+    geom_hline(yintercept = 0.25) +
+    theme(axis.text.x=element_text(angle=35, hjust=1)) +
+    scale_fill_manual(values=colorScheme) +
+    labs(x='Question', y='Proportion Correct')
+```
+
+```{r, echo=F, message=F}
+combinedData %>% 
+  group_by(participant_id, repeated) %>% 
+  summarize(
+    proportion_correct =  sum(answer_correct) / numberOfQuestions
+  ) %>% 
+  ggplot(aes(x=participant_id, y=proportion_correct, fill = repeated)) +
+    geom_bar(position = 'stack', stat = 'identity') +
+    geom_hline(yintercept = 0.25) +
+    theme(axis.text.x=element_text(angle=35, hjust=1)) + 
+    scale_fill_manual(values=colorScheme) +
+    labs(x='Participant', y='Proportion Correct')
+```
+
+
+# Removing Outliers
+
+_Removing questions where less than 25% of the participants answered correctly:_
+```{r}
+cleanedData <- combinedData %>% 
+  group_by(question) %>% 
+  summarize(
+    proportion_correct_question = sum(answer_correct) / numberOfQuestions
+  ) %>%
+  merge(combinedData, all.x = T, all.y = T, by = c('question')) %>% 
+  filter(proportion_correct_question > .25) 
+```
+
+_Removing participants that got less than 25% (=chance) of the questions right:_
+```{r}
+cleanedData <- cleanedData %>% 
+  group_by(participant_id) %>% 
+  summarize(
+    proportion_correct_participant = sum(answer_correct) / (numberOfQuestions - 2)
+  ) %>%
+  merge(combinedData, all.x = T, all.y = T, by = c('participant_id')) %>% 
+  filter(proportion_correct_participant > .25)
+```
+
+_Removing the first trial for each participant:_
+```{r}
+cleanedData <- cleanedData %>% 
+  filter(order != 1)
+```
+
+```{r}
+head(cleanedData)
+```
+
+
+## Saving
+
+```{r}
+write.csv(cleanedData, 'roboprofs_cleanedCombinedData.csv')
+```
+
+
+# Summary Statistics
+
+```{r}
+sumStatsCitizenshiptest <- cleanedData %>% 
+  group_by(participant_id, condition) %>% 
+  summarize(
+    percent_correct = mean(answer_correct),
+    percent_repeated = mean(repeated)
+  )
+```
+```{r}
+sumStatsCitizenshiptest
+```
+
+_Performance_
+```{r}
+sumStatsCitizenshiptest %>% 
+  group_by(condition) %>% 
+  summarize(
+    mean=mean(percent_correct),
+    median=median(percent_correct),
+    sd=sd(percent_correct)
+  )
+```
+
+_Repetition_
+```{r}
+sumStatsCitizenshiptest %>% 
+  group_by(condition) %>% 
+  summarize(
+    mean=mean(percent_repeated),
+    median=median(percent_repeated),
+    sd=sd(percent_repeated)
+  )
+```
+
+_Overall_
+```{r}
+sumStatsCitizenshiptest %>% 
+  ungroup %>% 
+  summarize(
+    mean_score = mean(percent_correct),
+    median_score = median(percent_correct),
+    sd_score = sd(percent_correct),
+    mean_retake = mean(percent_repeated),
+    median_retake = median(percent_repeated),
+    sd_retake = sd(percent_repeated)
+  )
+```
+
