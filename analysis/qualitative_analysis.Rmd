@@ -10,7 +10,7 @@ output:
 library(tidyverse)
 library(dplyr)
 library(readxl)
-Citizenship_Test_Data_Randomized <- read_csv("questionaire.csv")
+Citizenship_Test_Data_Randomized <- read_csv("questionnaire.csv")
 
 colorScheme <- c('#fb9902', '#008080')
 theme_set(theme_bw())
