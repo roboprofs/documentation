@@ -1,0 +1,4 @@
+<!--ID=B7267351-473F-409D-9765-754A8EBCDE05;Version=1|{"VoiceNameToIdMapItems":[{"Id":"38db11b6-fa64-4989-8d75-4a48695ee5cd","Name":"Microsoft Server Speech Text to Speech Voice (en-US, SaraNeural)","ShortName":"en-US-SaraNeural","Locale":"en-US","VoiceType":"StandardVoice"}]}-->
+<!--ID=5B95B1CC-2C7B-494F-B746-CF22A0E779B7;Version=1|{"Locales":{"en-US":{"AutoApplyCustomLexiconFiles":[{}]}}}-->
+<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" version="1.0" xml:lang="en-US"><voice name="en-US-SaraNeural"><prosody rate="-4.00%">Did you understand everything, 
+or </prosody><break strength="x-weak" /><prosody rate="-4.00%">should </prosody><prosody rate="-4.00%" contour="(4%, +6%) (30%, -1%) (66%, -9%) (93%, -6%)">I repeat the lecture</prosody><prosody rate="-4.00%">?</prosody></voice></speak>

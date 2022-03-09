@@ -1,0 +1,7 @@
+<!--ID=B7267351-473F-409D-9765-754A8EBCDE05;Version=1|{"VoiceNameToIdMapItems":[{"Id":"38db11b6-fa64-4989-8d75-4a48695ee5cd","Name":"Microsoft Server Speech Text to Speech Voice (en-US, SaraNeural)","ShortName":"en-US-SaraNeural","Locale":"en-US","VoiceType":"StandardVoice"}]}-->
+<!--ID=5B95B1CC-2C7B-494F-B746-CF22A0E779B7;Version=1|{"Locales":{"en-US":{"AutoApplyCustomLexiconFiles":[{}]}}}-->
+<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" version="1.0" xml:lang="en-US"><voice name="en-US-SaraNeural"><s /><mstts:express-as style="Default"><prosody rate="-4.00%">We are in a parallel universe, which entails 290,000 different species on 2,000 individual planets. </prosody></mstts:express-as><s />
+<s /><mstts:express-as style="Default"><prosody rate="-4.00%">The species with humanoid appearances are Zufa Rufu, Klono Pales, Jate Rales, Moka Nules and Prozu Falares. </prosody></mstts:express-as><s />
+<s /><mstts:express-as style="Default"><prosody rate="-4.00%">They all are intelligent creatures with feelings. </prosody></mstts:express-as><s />
+<s /><mstts:express-as style="Default"><prosody rate="-4.00%">Out of these species, Jate Rales and Zufa Rufu live peacefully on the planet Klux. </prosody></mstts:express-as><s />
+<s /><mstts:express-as style="Default"><prosody rate="-4.00%">The other intelligent species inhabit different planets. </prosody></mstts:express-as><s /></voice></speak>

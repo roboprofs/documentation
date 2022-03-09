@@ -1,0 +1,8 @@
+<!--ID=B7267351-473F-409D-9765-754A8EBCDE05;Version=1|{"VoiceNameToIdMapItems":[{"Id":"38db11b6-fa64-4989-8d75-4a48695ee5cd","Name":"Microsoft Server Speech Text to Speech Voice (en-US, SaraNeural)","ShortName":"en-US-SaraNeural","Locale":"en-US","VoiceType":"StandardVoice"}]}-->
+<!--ID=5B95B1CC-2C7B-494F-B746-CF22A0E779B7;Version=1|{"Locales":{"en-US":{"AutoApplyCustomLexiconFiles":[{}]}}}-->
+<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" version="1.0" xml:lang="en-US"><voice name="en-US-SaraNeural"><s /><mstts:express-as style="Default"><prosody rate="-4.00%">These are Flox and Nol. </prosody></mstts:express-as><s />
+<s /><mstts:express-as style="Default"><prosody rate="-4.00%">They live on the planet Flasso and are Klono Pales, very tall creatures with big ears. </prosody></mstts:express-as><s />
+<s /><mstts:express-as style="Default"><prosody rate="-4.00%">You can spot the gender of a Klono Pale by the form of their ears. </prosody></mstts:express-as><s />
+<s /><mstts:express-as style="Default"><prosody rate="-4.00%">Triangle ears mean that the Klono Pale is male. The females, on the other hand, have round ears. </prosody></mstts:express-as><s />
+<s /><mstts:express-as style="Default"><prosody rate="-4.00%">Flox and Nol want to climb a high mountain named Zut because their hometown Palasa is located on the top. </prosody></mstts:express-as><s />
+<s /><mstts:express-as style="Default"><prosody rate="-4.00%">Zut is 8,000 Blobus high. This is about 2,000 meters.</prosody></mstts:express-as><s /></voice></speak>
